@@ -19,8 +19,14 @@ https://github.com/fnando/dotshell/releases/latest
 
 ## Usage
 
-Load the initialization on your rc file (e.g. ~/.zshrc)
+Load the init script on your rc file (e.g. `~/.zshrc`):
+
+```bash
+eval "$(dotshell shell-init)"
+```
+
+Use dotshell:
 
 ```console
-$ dotshell .env
+$ dotshell
 ```
