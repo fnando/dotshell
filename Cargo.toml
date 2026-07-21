@@ -1,0 +1,8 @@
+[package]
+name = "dotshell"
+version = "0.0.0"
+edition = "2024"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+dotenvy = "0.15.7"
