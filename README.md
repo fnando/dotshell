@@ -30,3 +30,14 @@ Use dotshell:
 ```console
 $ dotshell
 ```
+
+### Running a command
+
+Pass a command after `--` to run it non-interactively with the loaded
+environment, instead of starting a shell session. dotshell exits with the
+command's exit status.
+
+```console
+$ dotshell -- printenv DATABASE_URL
+$ dotshell .env.production -- ./deploy.sh
+```
