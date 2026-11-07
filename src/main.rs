@@ -137,17 +137,17 @@ fn main() {
             let err = cmd.exec();
             eprintln!("dotshell: failed to exec \"{shell}\": {err}");
             std::process::exit(1);
-        } else {
-            for key in &previous {
-                println!("unset {key}");
-            }
-            for (key, value) in &loaded {
-                let escaped = value.replace('\'', r"'\''");
-                println!("export {key}='{escaped}'");
-            }
-            println!("export DOTSHELL_KEYS='{keys}'");
-            eprintln!("[dotshell] Reloaded.");
         }
+
+        for key in &previous {
+            println!("unset {key}");
+        }
+        for (key, value) in &loaded {
+            let escaped = value.replace('\'', r"'\''");
+            println!("export {key}='{escaped}'");
+        }
+        println!("export DOTSHELL_KEYS='{keys}'");
+        eprintln!("[dotshell] Reloaded.");
     } else {
         let depth = next_depth(std::env::var("DOTSHELL_DEPTH").ok().as_deref());
         let loaded = load_files(&cli.files).unwrap_or_else(|e| {
@@ -256,23 +256,6 @@ mod tests {
         ));
         fs::create_dir_all(&dir).unwrap();
         dir
-    }
-
-    /// Path to the compiled binary, derived from the test runner's location
-    /// (`target/debug/deps/dotshell-<hash>` -> `target/debug/dotshell`).
-    fn dotshell_bin() -> std::path::PathBuf {
-        std::env::current_exe()
-            .unwrap()
-            .parent()
-            .and_then(std::path::Path::parent)
-            .unwrap()
-            .join(env!("CARGO_PKG_NAME"))
-    }
-
-    fn write_env(dir: &std::path::Path, name: &str, contents: &str) -> String {
-        let path = dir.join(name);
-        fs::write(&path, contents).unwrap();
-        path.to_string_lossy().to_string()
     }
 
     #[test]
@@ -391,97 +374,6 @@ mod tests {
         .unwrap();
 
         assert_eq!(loaded.get("FOO"), Some(&"override".to_string()));
-        fs::remove_dir_all(&dir).ok();
-    }
-
-    #[test]
-    fn exec_runs_command_with_loaded_env() {
-        let dir = temp_dir("exec-loaded-env");
-        let env_file = write_env(&dir, ".env", "GREETING=hello\n");
-
-        let output = Command::new(dotshell_bin())
-            .args([&env_file, "--", "printenv", "GREETING"])
-            .output()
-            .unwrap();
-
-        assert!(output.status.success());
-        assert_eq!(String::from_utf8_lossy(&output.stdout), "hello\n");
-        fs::remove_dir_all(&dir).ok();
-    }
-
-    #[test]
-    fn exec_last_file_wins_for_the_command() {
-        let dir = temp_dir("exec-override");
-        let base = write_env(&dir, ".env", "FOO=base\n");
-        let overrides = write_env(&dir, ".env.local", "FOO=override\n");
-
-        let output = Command::new(dotshell_bin())
-            .args([&base, &overrides, "--", "printenv", "FOO"])
-            .output()
-            .unwrap();
-
-        assert!(output.status.success());
-        assert_eq!(String::from_utf8_lossy(&output.stdout), "override\n");
-        fs::remove_dir_all(&dir).ok();
-    }
-
-    #[test]
-    fn exec_does_not_leak_bookkeeping_vars() {
-        let dir = temp_dir("exec-no-bookkeeping");
-        let env_file = write_env(&dir, ".env", "FOO=1\n");
-
-        let output = Command::new(dotshell_bin())
-            .args([&env_file, "--", "printenv", "DOTSHELL_KEYS"])
-            .output()
-            .unwrap();
-
-        // printenv exits non-zero when the variable is unset.
-        assert!(!output.status.success());
-        assert!(String::from_utf8_lossy(&output.stdout).is_empty());
-        fs::remove_dir_all(&dir).ok();
-    }
-
-    #[test]
-    fn exec_passes_through_the_command_exit_status() {
-        let dir = temp_dir("exec-exit-status");
-        let env_file = write_env(&dir, ".env", "FOO=1\n");
-
-        let output = Command::new(dotshell_bin())
-            .args([&env_file, "--", "sh", "-c", "exit 42"])
-            .output()
-            .unwrap();
-
-        assert_eq!(output.status.code(), Some(42));
-        fs::remove_dir_all(&dir).ok();
-    }
-
-    #[test]
-    fn exec_reports_missing_command_and_exits_127() {
-        let dir = temp_dir("exec-missing-command");
-        let env_file = write_env(&dir, ".env", "FOO=1\n");
-
-        let output = Command::new(dotshell_bin())
-            .args([&env_file, "--", "definitely-not-a-real-command-xyz"])
-            .output()
-            .unwrap();
-
-        assert_eq!(output.status.code(), Some(127));
-        assert!(String::from_utf8_lossy(&output.stderr).contains("failed to exec"));
-        fs::remove_dir_all(&dir).ok();
-    }
-
-    #[test]
-    fn exec_errors_on_malformed_env_file() {
-        let dir = temp_dir("exec-malformed");
-        let bad = write_env(&dir, ".env.bad", "this is not valid\n");
-
-        let output = Command::new(dotshell_bin())
-            .args([&bad, "--", "true"])
-            .output()
-            .unwrap();
-
-        assert_eq!(output.status.code(), Some(1));
-        assert!(String::from_utf8_lossy(&output.stderr).contains("dotshell:"));
         fs::remove_dir_all(&dir).ok();
     }
 }

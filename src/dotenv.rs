@@ -33,6 +33,10 @@ pub fn parse(
     Ok(entries)
 }
 
+fn err(line: usize, msg: &str) -> String {
+    format!("line {line}: {msg}")
+}
+
 struct Parser {
     chars: Vec<char>,
     pos: usize,
@@ -67,10 +71,6 @@ impl Parser {
         }
     }
 
-    fn err(&self, line: usize, msg: &str) -> String {
-        format!("line {line}: {msg}")
-    }
-
     fn next_entry(
         &mut self,
         scope: &HashMap<String, String>,
@@ -96,12 +96,12 @@ impl Parser {
         }
 
         if key.is_empty() {
-            return Err(self.err(line, "expected a variable name"));
+            return Err(err(line, "expected a variable name"));
         }
 
         self.skip_inline_whitespace();
         if self.peek() != Some('=') {
-            return Err(self.err(line, &format!("expected `=` after `{key}`")));
+            return Err(err(line, &format!("expected `=` after `{key}`")));
         }
         self.bump();
         self.skip_inline_whitespace();
@@ -145,7 +145,7 @@ impl Parser {
         let mut value = String::new();
         loop {
             match self.bump() {
-                None => return Err(self.err(line, "unterminated single-quoted value")),
+                None => return Err(err(line, "unterminated single-quoted value")),
                 Some('\'') => return Ok(value),
                 Some(c) => value.push(c),
             }
@@ -161,7 +161,7 @@ impl Parser {
         let mut value = String::new();
         loop {
             match self.bump() {
-                None => return Err(self.err(line, "unterminated double-quoted value")),
+                None => return Err(err(line, "unterminated double-quoted value")),
                 Some('"') => return Ok(value),
                 Some('\\') => match self.bump() {
                     Some('n') => value.push('\n'),
@@ -172,7 +172,7 @@ impl Parser {
                         value.push('\\');
                         value.push(c);
                     }
-                    None => return Err(self.err(line, "unterminated double-quoted value")),
+                    None => return Err(err(line, "unterminated double-quoted value")),
                 },
                 Some('$') => self.expand(&mut value, scope),
                 Some(c) => value.push(c),
@@ -198,7 +198,7 @@ impl Parser {
                 self.skip_to_eol();
                 Ok(())
             }
-            Some(_) => Err(self.err(line, "unexpected characters after closing quote")),
+            Some(_) => Err(err(line, "unexpected characters after closing quote")),
         }
     }
 
@@ -271,7 +271,10 @@ mod tests {
 
     #[test]
     fn unquoted_json_is_kept_literally() {
-        assert_eq!(get("SOME_ENV={\"a\":\"test\"}\n", "SOME_ENV"), r#"{"a":"test"}"#);
+        assert_eq!(
+            get("SOME_ENV={\"a\":\"test\"}\n", "SOME_ENV"),
+            r#"{"a":"test"}"#
+        );
         assert_eq!(
             get("SOME_ENV={\"a\": \"test\", \"b\": [1, 2]}\n", "SOME_ENV"),
             r#"{"a": "test", "b": [1, 2]}"#
@@ -280,7 +283,10 @@ mod tests {
 
     #[test]
     fn single_quoted_json_is_unwrapped() {
-        assert_eq!(get("SOME_ENV='{\"a\":\"test\"}'\n", "SOME_ENV"), r#"{"a":"test"}"#);
+        assert_eq!(
+            get("SOME_ENV='{\"a\":\"test\"}'\n", "SOME_ENV"),
+            r#"{"a":"test"}"#
+        );
     }
 
     #[test]
@@ -332,9 +338,15 @@ mod tests {
 
     #[test]
     fn double_quoted_handles_escapes_and_multiline() {
-        assert_eq!(get(r#"FOO="a\nb\t\"c\" \\ \$X""#, "FOO"), "a\nb\t\"c\" \\ $X");
+        assert_eq!(
+            get(r#"FOO="a\nb\t\"c\" \\ \$X""#, "FOO"),
+            "a\nb\t\"c\" \\ $X"
+        );
         assert_eq!(get("FOO=\"line1\nline2\"\n", "FOO"), "line1\nline2");
-        assert_eq!(get(r#"FOO="a # not a comment""#, "FOO"), "a # not a comment");
+        assert_eq!(
+            get(r#"FOO="a # not a comment""#, "FOO"),
+            "a # not a comment"
+        );
     }
 
     #[test]
