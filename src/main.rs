@@ -1,3 +1,5 @@
+mod dotenv;
+
 use clap::{Parser, Subcommand};
 use std::collections::HashMap;
 use std::io::IsTerminal;
@@ -227,16 +229,15 @@ fn load_files(paths: &[String]) -> Result<HashMap<String, String>, String> {
     let mut merged: HashMap<String, String> = HashMap::new();
 
     for path in paths {
-        let iter = match dotenvy::from_path_iter(path) {
-            Ok(iter) => iter,
-            Err(e) if e.not_found() => continue,
+        let contents = match std::fs::read_to_string(path) {
+            Ok(contents) => contents,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => continue,
             Err(e) => return Err(format!("error reading \"{path}\": {e}")),
         };
 
-        for item in iter {
-            let (key, value) = item.map_err(|e| format!("error parsing \"{path}\": {e}"))?;
-            merged.insert(key, value);
-        }
+        let entries = dotenv::parse(&contents, &merged)
+            .map_err(|e| format!("error parsing \"{path}\": {e}"))?;
+        merged.extend(entries);
     }
 
     Ok(merged)

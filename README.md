@@ -41,3 +41,18 @@ command's exit status.
 $ dotshell -- printenv DATABASE_URL
 $ dotshell .env.production -- ./deploy.sh
 ```
+
+### .env syntax
+
+dotshell follows the same rules as Docker Compose:
+
+```bash
+# Comments and blank lines are ignored.
+export FOO=bar                  # `export` prefix is optional
+UNQUOTED={"a":"test"}           # taken literally, quotes included
+SINGLE='{"a":"$NOT_EXPANDED"}'  # fully literal, may span lines
+DOUBLE="line1\nline2 ${FOO}"    # escapes (\n \r \t \" \\ \$) and expansion
+URL=http://$HOST:3000           # $VAR / ${VAR} expand in unquoted values too
+```
+
+A `#` starts a comment only when preceded by whitespace (`a#b` is kept as is).
